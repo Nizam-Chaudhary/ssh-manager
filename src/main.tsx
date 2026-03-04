@@ -4,7 +4,10 @@ import { RouterProvider, createRouter } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import ReactDOM from 'react-dom/client';
 
+import { Toaster } from '@/components/ui/sonner';
+
 import { ThemeProvider } from './components/theme-provider';
+import { TooltipProvider } from './components/ui/tooltip';
 // Import the generated route tree
 import { routeTree } from './routeTree.gen';
 
@@ -25,7 +28,10 @@ if (!rootElement.innerHTML) {
     root.render(
         <StrictMode>
             <ThemeProvider defaultTheme='dark' storageKey='vite-ui-theme'>
-                <RouterProvider router={router} />
+                <TooltipProvider>
+                    <RouterProvider router={router} />
+                    <Toaster />
+                </TooltipProvider>
             </ThemeProvider>
         </StrictMode>,
     );
