@@ -9,18 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as ExampleRouteImport } from './routes/example'
-import { Route as AboutRouteImport } from './routes/about'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as PortForwardingRouteImport } from './routes/port-forwarding'
 import { Route as IndexRouteImport } from './routes/index'
 
-const ExampleRoute = ExampleRouteImport.update({
-  id: '/example',
-  path: '/example',
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AboutRoute = AboutRouteImport.update({
-  id: '/about',
-  path: '/about',
+const PortForwardingRoute = PortForwardingRouteImport.update({
+  id: '/port-forwarding',
+  path: '/port-forwarding',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -31,48 +31,48 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
-  '/example': typeof ExampleRoute
+  '/port-forwarding': typeof PortForwardingRoute
+  '/settings': typeof SettingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
-  '/example': typeof ExampleRoute
+  '/port-forwarding': typeof PortForwardingRoute
+  '/settings': typeof SettingsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
-  '/example': typeof ExampleRoute
+  '/port-forwarding': typeof PortForwardingRoute
+  '/settings': typeof SettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/example'
+  fullPaths: '/' | '/port-forwarding' | '/settings'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/example'
-  id: '__root__' | '/' | '/about' | '/example'
+  to: '/' | '/port-forwarding' | '/settings'
+  id: '__root__' | '/' | '/port-forwarding' | '/settings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AboutRoute: typeof AboutRoute
-  ExampleRoute: typeof ExampleRoute
+  PortForwardingRoute: typeof PortForwardingRoute
+  SettingsRoute: typeof SettingsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/example': {
-      id: '/example'
-      path: '/example'
-      fullPath: '/example'
-      preLoaderRoute: typeof ExampleRouteImport
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/about': {
-      id: '/about'
-      path: '/about'
-      fullPath: '/about'
-      preLoaderRoute: typeof AboutRouteImport
+    '/port-forwarding': {
+      id: '/port-forwarding'
+      path: '/port-forwarding'
+      fullPath: '/port-forwarding'
+      preLoaderRoute: typeof PortForwardingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -87,8 +87,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AboutRoute: AboutRoute,
-  ExampleRoute: ExampleRoute,
+  PortForwardingRoute: PortForwardingRoute,
+  SettingsRoute: SettingsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
