@@ -65,7 +65,7 @@ function HostsPage() {
     };
 
     const handleAdd = () => {
-        void navigate({ to: '/hosts/new' });
+        void navigate({ to: '/hosts/new', search: { redirectTo: undefined } });
     };
 
     const handleExport = (host: Host) => {

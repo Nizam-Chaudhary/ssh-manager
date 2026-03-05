@@ -3,10 +3,12 @@ import { useNavigate } from '@tanstack/react-router';
 import {
     ArrowLeftIcon,
     CheckCircleIcon,
+    CheckIcon,
     ChevronDownIcon,
     ChevronsUpDownIcon,
     CopyIcon,
     Loader2Icon,
+    PlusIcon,
     SparklesIcon,
     TerminalIcon,
     XCircleIcon,
@@ -72,6 +74,7 @@ export function ForwardForm({ forward }: ForwardFormProps) {
         suggestedPort?: number;
     } | null>(null);
     const [isCheckingPort, setIsCheckingPort] = useState(false);
+    const [hostOpen, setHostOpen] = useState(false);
 
     const form = useForm({
         defaultValues: {
@@ -336,41 +339,107 @@ export function ForwardForm({ forward }: ForwardFormProps) {
                                 children={(field) => {
                                     const isInvalid =
                                         field.state.meta.isTouched && !field.state.meta.isValid;
+                                    const selectedHost = hosts.find(
+                                        (h) => h.id === field.state.value,
+                                    );
                                     return (
                                         <Field data-invalid={isInvalid}>
                                             <FieldLabel htmlFor='forward-host'>Host</FieldLabel>
-                                            <Select
-                                                name={field.name}
-                                                value={field.state.value}
-                                                onValueChange={(val) => {
-                                                    if (val) field.handleChange(val);
-                                                }}>
-                                                <SelectTrigger
-                                                    id='forward-host'
-                                                    aria-invalid={isInvalid}>
-                                                    <SelectValue placeholder='Select host'>
-                                                        {field.state.value
-                                                            ? (() => {
-                                                                  const selected = hosts.find(
-                                                                      (h) =>
-                                                                          h.id ===
-                                                                          field.state.value,
-                                                                  );
-                                                                  return selected
-                                                                      ? `${selected.name} (${selected.hostname})`
-                                                                      : 'Select host';
-                                                              })()
-                                                            : 'Select host'}
-                                                    </SelectValue>
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {hosts.map((host) => (
-                                                        <SelectItem key={host.id} value={host.id}>
-                                                            {host.name} ({host.hostname})
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <Popover open={hostOpen} onOpenChange={setHostOpen}>
+                                                <PopoverTrigger
+                                                    render={
+                                                        <Button
+                                                            variant='outline'
+                                                            id='forward-host'
+                                                            className='w-full justify-between font-normal'
+                                                            aria-invalid={isInvalid}
+                                                        />
+                                                    }>
+                                                    {selectedHost
+                                                        ? `${selectedHost.name} (${selectedHost.hostname})`
+                                                        : 'Select host...'}
+                                                    <ChevronsUpDownIcon className='ml-auto size-4 shrink-0 opacity-50' />
+                                                </PopoverTrigger>
+                                                <PopoverContent
+                                                    className='w-[--radix-popover-trigger-width] p-0'
+                                                    align='start'>
+                                                    <Command>
+                                                        <CommandInput placeholder='Search hosts...' />
+                                                        <CommandList>
+                                                            <CommandEmpty>
+                                                                <div className='flex flex-col items-center gap-2 py-2'>
+                                                                    <p className='text-sm text-muted-foreground'>
+                                                                        No hosts found.
+                                                                    </p>
+                                                                    <Button
+                                                                        size='sm'
+                                                                        variant='outline'
+                                                                        onClick={() => {
+                                                                            setHostOpen(false);
+                                                                            void navigate({
+                                                                                to: '/hosts/new',
+                                                                                search: {
+                                                                                    redirectTo:
+                                                                                        '/forwards/new',
+                                                                                },
+                                                                            });
+                                                                        }}>
+                                                                        <PlusIcon className='size-3.5' />
+                                                                        Add Host
+                                                                    </Button>
+                                                                </div>
+                                                            </CommandEmpty>
+                                                            <CommandGroup>
+                                                                {hosts.map((host) => (
+                                                                    <CommandItem
+                                                                        key={host.id}
+                                                                        value={`${host.name} ${host.hostname}`}
+                                                                        onSelect={() => {
+                                                                            field.handleChange(
+                                                                                host.id,
+                                                                            );
+                                                                            setHostOpen(false);
+                                                                        }}>
+                                                                        <CheckIcon
+                                                                            className={`mr-2 size-4 ${
+                                                                                field.state
+                                                                                    .value ===
+                                                                                host.id
+                                                                                    ? 'opacity-100'
+                                                                                    : 'opacity-0'
+                                                                            }`}
+                                                                        />
+                                                                        <div className='flex flex-col'>
+                                                                            <span className='font-medium'>
+                                                                                {host.name}
+                                                                            </span>
+                                                                            <span className='text-xs text-muted-foreground'>
+                                                                                {host.hostname}
+                                                                            </span>
+                                                                        </div>
+                                                                    </CommandItem>
+                                                                ))}
+                                                            </CommandGroup>
+                                                            <CommandGroup>
+                                                                <CommandItem
+                                                                    onSelect={() => {
+                                                                        setHostOpen(false);
+                                                                        void navigate({
+                                                                            to: '/hosts/new',
+                                                                            search: {
+                                                                                redirectTo:
+                                                                                    '/forwards/new',
+                                                                            },
+                                                                        });
+                                                                    }}>
+                                                                    <PlusIcon className='mr-2 size-4' />
+                                                                    Add new host...
+                                                                </CommandItem>
+                                                            </CommandGroup>
+                                                        </CommandList>
+                                                    </Command>
+                                                </PopoverContent>
+                                            </Popover>
                                             {isInvalid && (
                                                 <FieldError errors={field.state.meta.errors} />
                                             )}

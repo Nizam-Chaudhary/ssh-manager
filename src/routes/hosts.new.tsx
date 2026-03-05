@@ -5,14 +5,19 @@ import { PageHeader } from '@/components/page-header';
 
 export const Route = createFileRoute('/hosts/new')({
     component: NewHostPage,
+    validateSearch: (search: Record<string, unknown>) => ({
+        redirectTo: (search.redirectTo as string) || undefined,
+    }),
 });
 
 function NewHostPage() {
+    const { redirectTo } = Route.useSearch();
+
     return (
         <>
             <PageHeader title='Add Host' />
             <div className='flex flex-1 flex-col gap-4 p-4'>
-                <HostForm />
+                <HostForm redirectTo={redirectTo} />
             </div>
         </>
     );

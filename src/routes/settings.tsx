@@ -100,16 +100,31 @@ function SettingsPage() {
                                             const imported =
                                                 await api.ssh.importSshConfig('~/.ssh/config');
                                             if (imported && imported.length > 0) {
-                                                imported.forEach((h: any) => {
-                                                    // Ensure it lacks an ID, so the store assigns one, or leave it if store handles it
-                                                    const { id: _id, status: _status, ...rest } = h;
-                                                    addHost(rest as any);
-                                                });
-                                                toast.success(
-                                                    `Imported ${imported.length} hosts from ~/.ssh/config`,
+                                                const newHosts = imported.filter(
+                                                    (h: any) =>
+                                                        !hosts.some(
+                                                            (existing) => existing.name === h.name,
+                                                        ),
                                                 );
+
+                                                if (newHosts.length > 0) {
+                                                    newHosts.forEach((h: any) => {
+                                                        // Ensure it lacks an ID, so the store assigns one, or leave it if store handles it
+                                                        const {
+                                                            id: _id,
+                                                            status: _status,
+                                                            ...rest
+                                                        } = h;
+                                                        addHost(rest as any);
+                                                    });
+                                                    toast.success(
+                                                        `Imported ${newHosts.length} new hosts from ~/.ssh/config`,
+                                                    );
+                                                } else {
+                                                    toast.info('No new hosts found to import.');
+                                                }
                                             } else {
-                                                toast.info('No new hosts found to import.');
+                                                toast.info('No hosts found in ~/.ssh/config.');
                                             }
                                         } catch (err) {
                                             toast.error('Failed to import config');

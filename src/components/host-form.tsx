@@ -36,9 +36,10 @@ import { useAppStore } from '@/lib/store';
 
 interface HostFormProps {
     host?: Host | null;
+    redirectTo?: string;
 }
 
-export function HostForm({ host }: HostFormProps) {
+export function HostForm({ host, redirectTo }: HostFormProps) {
     const { addHost, updateHost } = useAppStore();
     const navigate = useNavigate();
     const isEditing = !!host;
@@ -97,14 +98,17 @@ export function HostForm({ host }: HostFormProps) {
                 addHost(castValue);
                 toast.success(`Host "${value.name}" added`);
             }
-            void navigate({ to: '/' });
+            void navigate({ to: redirectTo ?? '/' });
         },
     });
 
     return (
         <div className='mx-auto w-full max-w-4xl'>
             <div className='mb-6'>
-                <Button variant='ghost' size='sm' onClick={() => void navigate({ to: '/' })}>
+                <Button
+                    variant='ghost'
+                    size='sm'
+                    onClick={() => void navigate({ to: redirectTo ?? '/' })}>
                     <ArrowLeftIcon className='mr-2 h-4 w-4' />
                     Back to Hosts
                 </Button>
