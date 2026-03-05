@@ -6,6 +6,7 @@ import {
     PencilIcon,
     PlusIcon,
     SearchIcon,
+    TerminalIcon,
     TrashIcon,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -97,33 +98,23 @@ function HostsPage() {
                 </div>
 
                 {/* Table */}
-                <div className='rounded-lg border'>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Hostname</TableHead>
-                                <TableHead>User</TableHead>
-                                <TableHead className='w-17.5'>Port</TableHead>
-                                <TableHead>Auth</TableHead>
-                                <TableHead className='w-22.5'>Forwards</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className='w-12.5' />
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {filteredHosts.length === 0 ? (
+                {filteredHosts.length > 0 ? (
+                    <div className='rounded-lg border'>
+                        <Table>
+                            <TableHeader>
                                 <TableRow>
-                                    <TableCell
-                                        colSpan={8}
-                                        className='h-24 text-center text-muted-foreground'>
-                                        {search
-                                            ? 'No hosts match your search.'
-                                            : 'No hosts yet. Click "Add Host" to get started.'}
-                                    </TableCell>
+                                    <TableHead>Name</TableHead>
+                                    <TableHead>Hostname</TableHead>
+                                    <TableHead>User</TableHead>
+                                    <TableHead className='w-17.5'>Port</TableHead>
+                                    <TableHead>Auth</TableHead>
+                                    <TableHead className='w-22.5'>Forwards</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead className='w-12.5' />
                                 </TableRow>
-                            ) : (
-                                filteredHosts.map((host) => (
+                            </TableHeader>
+                            <TableBody>
+                                {filteredHosts.map((host) => (
                                     <TableRow key={host.id}>
                                         <TableCell className='font-medium'>{host.name}</TableCell>
                                         <TableCell className='font-mono text-sm'>
@@ -180,11 +171,31 @@ function HostsPage() {
                                             </DropdownMenu>
                                         </TableCell>
                                     </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                ) : (
+                    <div className='flex flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-12'>
+                        <TerminalIcon className='size-8 text-muted-foreground' />
+                        <div className='text-center'>
+                            <p className='font-medium'>
+                                {search ? 'No hosts found' : 'No hosts configured'}
+                            </p>
+                            <p className='text-sm text-muted-foreground'>
+                                {search
+                                    ? 'Try adjusting your search query.'
+                                    : 'Add a new host to get started.'}
+                            </p>
+                        </div>
+                        {!search && (
+                            <Button size='sm' onClick={handleAdd}>
+                                <PlusIcon />
+                                Add Host
+                            </Button>
+                        )}
+                    </div>
+                )}
             </div>
 
             <ConfirmDialog
