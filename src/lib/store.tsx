@@ -1,17 +1,24 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { create } from 'zustand';
+import { devtools, subscribeWithSelector } from 'zustand/middleware';
+import { immer } from 'zustand/middleware/immer';
 
 import type { AppSettings, Host, PortForward } from './types';
 
 import { initialSettings } from './mock-data';
 
-interface AppStore {
+interface AppState {
     hosts: Host[];
+    forwards: PortForward[];
+    settings: AppSettings;
+    isLoaded: boolean;
+}
+
+interface AppActions {
     addHost: (host: Omit<Host, 'id' | 'status'>) => void;
     updateHost: (id: string, host: Partial<Host>) => void;
     deleteHost: (id: string) => void;
     duplicateHost: (id: string) => void;
 
-    forwards: PortForward[];
     addForward: (forward: Omit<PortForward, 'id' | 'status'>) => void;
     updateForward: (id: string, forward: Partial<PortForward>) => void;
     deleteForward: (id: string) => void;
@@ -22,274 +29,313 @@ interface AppStore {
         port: number,
     ) => Promise<{ available: boolean; suggestedPort?: number }>;
 
-    settings: AppSettings;
     updateSettings: (settings: Partial<AppSettings>) => void;
+
+    // Internal actions for initialization and IPC
+    _setInitialData: (data: { hosts?: Host[]; settings?: AppSettings }) => void;
+    _setTunnelStatus: (forwardId: string, status: string, error?: string) => void;
+    _setIsLoaded: (isLoaded: boolean) => void;
 }
 
-const AppStoreContext = createContext<AppStore | null>(null);
+export type AppStore = AppState & AppActions;
 
-export function AppStoreProvider({ children }: { children: React.ReactNode }) {
-    const [hosts, setHosts] = useState<Host[]>([]);
-    const [forwards, setForwards] = useState<PortForward[]>([]);
-    const [settings, setSettings] = useState<AppSettings>(initialSettings);
-    const [isLoaded, setIsLoaded] = useState(false);
+const initialState: AppState = {
+    hosts: [],
+    forwards: [],
+    settings: initialSettings,
+    isLoaded: false,
+};
 
-    // Initial Load
-    useEffect(() => {
-        const loadInitialData = async () => {
-            try {
-                let configPath = initialSettings.configStoragePath;
-                if (!configPath.endsWith('.json')) {
-                    configPath = `${configPath}/config.json`;
-                }
-                // @ts-expect-error global scope window extensions
-                const data = await window.electronAPI.ssh.loadConfig(configPath);
-                if (data) {
-                    if (data.hosts) setHosts(data.hosts);
-                    if (data.settings) setSettings(data.settings);
+export const useAppStore = create<AppStore>()(
+    devtools(
+        subscribeWithSelector(
+            immer((set, get) => ({
+                ...initialState,
 
-                    const allForwards = data.hosts.flatMap((h: Host) => h.forwards || []);
-                    setForwards(allForwards);
-                }
-            } catch (err) {
-                console.error('Failed to load config', err);
-            } finally {
-                setIsLoaded(true);
+                addHost: (host) => {
+                    set((state) => {
+                        state.hosts.push({
+                            ...host,
+                            id: crypto.randomUUID(),
+                            status: 'disconnected',
+                        } as Host);
+                    });
+                },
+
+                updateHost: (id, updates) => {
+                    set((state) => {
+                        const host = state.hosts.find((h) => h.id === id);
+                        if (host) {
+                            Object.assign(host, updates);
+                        }
+                    });
+                },
+
+                deleteHost: (id) => {
+                    set((state) => {
+                        state.hosts = state.hosts.filter((h) => h.id !== id);
+                        state.forwards = state.forwards.filter((f) => f.hostId !== id);
+                    });
+                },
+
+                duplicateHost: (id) => {
+                    set((state) => {
+                        const host = state.hosts.find((h) => h.id === id);
+                        if (host) {
+                            state.hosts.push({
+                                ...host,
+                                id: crypto.randomUUID(),
+                                name: `${host.name}-copy`,
+                                status: 'disconnected' as const,
+                            });
+                        }
+                    });
+                },
+
+                addForward: (forward) => {
+                    set((state) => {
+                        state.forwards.push({
+                            ...forward,
+                            id: crypto.randomUUID(),
+                            status: 'stopped',
+                        } as PortForward);
+                    });
+                },
+
+                updateForward: (id, updates) => {
+                    set((state) => {
+                        const forward = state.forwards.find((f) => f.id === id);
+                        if (forward) {
+                            Object.assign(forward, updates);
+                        }
+                    });
+                },
+
+                deleteForward: (id) => {
+                    set((state) => {
+                        state.forwards = state.forwards.filter((f) => f.id !== id);
+                    });
+                },
+
+                toggleForward: (id) => {
+                    set((state) => {
+                        const forward = state.forwards.find((f) => f.id === id);
+                        if (forward) {
+                            forward.status = forward.status === 'running' ? 'stopped' : 'running';
+                        }
+                    });
+                },
+
+                startForward: async (id) => {
+                    const state = get();
+                    const forward = state.forwards.find((f) => f.id === id);
+                    if (!forward) return;
+
+                    const host = state.hosts.find((h) => h.id === forward.hostId);
+                    if (!host) return;
+
+                    try {
+                        // @ts-expect-error global scope window extensions
+                        await window.electronAPI.ssh.startTunnel(
+                            {
+                                id: forward.id,
+                                type: forward.type,
+                                localPort: forward.localPort,
+                                remoteHost: forward.remoteHost,
+                                remotePort: forward.remotePort,
+                                localHost: forward.localHost,
+                                bindAddress: forward.bindAddress,
+                                gatewayPorts: forward.gatewayPorts,
+                                restartOnDisconnect: forward.restartOnDisconnect,
+                            },
+                            {
+                                name: host.name,
+                                hostname: host.hostname,
+                                port: host.port,
+                                username: host.username,
+                                identityFile: host.identityFile,
+                            },
+                            state.settings.sshBinaryPath,
+                        );
+
+                        set((state) => {
+                            const f = state.forwards.find((f) => f.id === id);
+                            if (f) f.status = 'running';
+                        });
+                    } catch (err) {
+                        console.error('Failed to start tunnel', err);
+                        set((state) => {
+                            const f = state.forwards.find((f) => f.id === id);
+                            if (f) f.status = 'error';
+                        });
+                    }
+                },
+
+                stopForward: async (id) => {
+                    try {
+                        // @ts-expect-error global scope window extensions
+                        await window.electronAPI.ssh.stopTunnel(id);
+                        set((state) => {
+                            const f = state.forwards.find((f) => f.id === id);
+                            if (f) f.status = 'stopped';
+                        });
+                    } catch (err) {
+                        console.error('Failed to stop tunnel', err);
+                    }
+                },
+
+                checkPortAvailability: async (port: number) => {
+                    try {
+                        // @ts-expect-error global scope window extensions
+                        return await window.electronAPI.ssh.checkPort(port);
+                    } catch (err) {
+                        console.error('Failed to check port', err);
+                        return { available: true };
+                    }
+                },
+
+                updateSettings: (updates) => {
+                    set((state) => {
+                        Object.assign(state.settings, updates);
+                    });
+                },
+
+                _setInitialData: (data) => {
+                    set((state) => {
+                        if (data.hosts) {
+                            state.hosts = data.hosts;
+                            state.forwards = data.hosts.flatMap((h: Host) => h.forwards || []);
+                        }
+                        if (data.settings) {
+                            state.settings = data.settings;
+                        }
+                        state.isLoaded = true;
+                    });
+                },
+
+                _setTunnelStatus: (forwardId, status, _error) => {
+                    set((state) => {
+                        const forward = state.forwards.find((f) => f.id === forwardId);
+                        if (forward) {
+                            forward.status = status as any;
+                        }
+                    });
+                },
+
+                _setIsLoaded: (isLoaded) => {
+                    set((state) => {
+                        state.isLoaded = isLoaded;
+                    });
+                },
+            })),
+        ),
+        { name: 'AppStore' },
+    ),
+);
+
+// Initialize store data and IPC listeners
+export function initializeStore() {
+    const store = useAppStore.getState();
+
+    // 1. Load Initial Data
+    const loadInitialData = async () => {
+        try {
+            let configPath = initialSettings.configStoragePath;
+            if (!configPath.endsWith('.json')) {
+                configPath = `${configPath}/config.json`;
             }
-        };
-        void loadInitialData();
-    }, []);
+            // @ts-expect-error global scope window extensions
+            const data = await window.electronAPI.ssh.loadConfig(configPath);
+            if (data) {
+                store._setInitialData(data);
+            } else {
+                store._setIsLoaded(true);
+            }
+        } catch (err) {
+            console.error('Failed to load config', err);
+            store._setIsLoaded(true);
+        }
+    };
 
-    // Listen for tunnel status changes from main process
-    useEffect(() => {
+    void loadInitialData();
+
+    // 2. Setup IPC Listeners
+    try {
+        // @ts-expect-error global scope window extensions
+        window.electronAPI.ssh.onTunnelStatusChange(
+            (data: { forwardId: string; status: string; error?: string }) => {
+                useAppStore.getState()._setTunnelStatus(data.forwardId, data.status, data.error);
+            },
+        );
+    } catch {
+        // Not in Electron environment
+    }
+
+    // 3. Setup Auto-save subscription
+    // We subscribe to changes in hosts, forwards, and settings to trigger a save
+    let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    useAppStore.subscribe(
+        (state) => ({
+            hosts: state.hosts,
+            forwards: state.forwards,
+            settings: state.settings,
+            isLoaded: state.isLoaded,
+        }),
+        (current, previous) => {
+            if (!current.isLoaded) return;
+
+            // Only trigger save if relevant state actually changed
+            if (
+                current.hosts === previous.hosts &&
+                current.forwards === previous.forwards &&
+                current.settings === previous.settings
+            ) {
+                return;
+            }
+
+            if (saveTimeout) clearTimeout(saveTimeout);
+
+            saveTimeout = setTimeout(async () => {
+                try {
+                    const hostsWithForwards = current.hosts.map((h) => ({
+                        ...h,
+                        forwards: current.forwards.filter((f) => f.hostId === h.id),
+                    }));
+
+                    const configData = {
+                        hosts: hostsWithForwards,
+                        settings: current.settings,
+                    };
+
+                    let configPath = current.settings.configStoragePath;
+                    if (!configPath.endsWith('.json')) {
+                        configPath = `${configPath}/config.json`;
+                    }
+
+                    // @ts-expect-error global scope window extensions
+                    await window.electronAPI.ssh.saveConfig(configPath, configData);
+                } catch (err) {
+                    console.error('Failed to save config', err);
+                }
+            }, 500);
+        },
+        {
+            equalityFn: (a, b) =>
+                a.hosts === b.hosts &&
+                a.forwards === b.forwards &&
+                a.settings === b.settings &&
+                a.isLoaded === b.isLoaded,
+        },
+    );
+
+    // Return cleanup function
+    return () => {
         try {
             // @ts-expect-error global scope window extensions
-            window.electronAPI.ssh.onTunnelStatusChange(
-                (data: { forwardId: string; status: string; error?: string }) => {
-                    setForwards((prev) =>
-                        prev.map((f) => {
-                            if (f.id !== data.forwardId) return f;
-                            return { ...f, status: data.status } as PortForward;
-                        }),
-                    );
-                },
-            );
+            window.electronAPI.ssh.removeTunnelStatusListener();
         } catch {
             // Not in Electron environment
         }
-
-        return () => {
-            try {
-                // @ts-expect-error global scope window extensions
-                window.electronAPI.ssh.removeTunnelStatusListener();
-            } catch {
-                // Not in Electron environment
-            }
-        };
-    }, []);
-
-    // Save on Change
-    useEffect(() => {
-        if (!isLoaded) return;
-
-        const saveConfig = async () => {
-            try {
-                const hostsWithForwards = hosts.map((h) => ({
-                    ...h,
-                    forwards: forwards.filter((f) => f.hostId === h.id),
-                }));
-
-                const configData = {
-                    hosts: hostsWithForwards,
-                    settings,
-                };
-
-                let configPath = settings.configStoragePath;
-                if (!configPath.endsWith('.json')) {
-                    configPath = `${configPath}/config.json`;
-                }
-
-                // @ts-expect-error global scope window extensions
-                await window.electronAPI.ssh.saveConfig(configPath, configData);
-            } catch (err) {
-                console.error('Failed to save config', err);
-            }
-        };
-
-        const timer = setTimeout(saveConfig, 500);
-        return () => clearTimeout(timer);
-    }, [hosts, forwards, settings, isLoaded]);
-
-    const addHost = useCallback((host: Omit<Host, 'id' | 'status'>) => {
-        setHosts((prev) => [
-            ...prev,
-            { ...host, id: crypto.randomUUID(), status: 'disconnected' } as Host,
-        ]);
-    }, []);
-
-    const updateHost = useCallback((id: string, updates: Partial<Host>) => {
-        setHosts((prev) => prev.map((h) => (h.id === id ? { ...h, ...updates } : h)));
-    }, []);
-
-    const deleteHost = useCallback((id: string) => {
-        setHosts((prev) => prev.filter((h) => h.id !== id));
-        setForwards((prev) => prev.filter((f) => f.hostId !== id));
-    }, []);
-
-    const duplicateHost = useCallback((id: string) => {
-        setHosts((prev) => {
-            const host = prev.find((h) => h.id === id);
-            if (!host) return prev;
-            return [
-                ...prev,
-                {
-                    ...host,
-                    id: crypto.randomUUID(),
-                    name: `${host.name}-copy`,
-                    status: 'disconnected' as const,
-                },
-            ];
-        });
-    }, []);
-
-    const addForward = useCallback((forward: Omit<PortForward, 'id' | 'status'>) => {
-        setForwards((prev) => [
-            ...prev,
-            { ...forward, id: crypto.randomUUID(), status: 'stopped' } as PortForward,
-        ]);
-    }, []);
-
-    const updateForward = useCallback((id: string, updates: Partial<PortForward>) => {
-        setForwards((prev) => prev.map((f) => (f.id === id ? { ...f, ...updates } : f)));
-    }, []);
-
-    const deleteForward = useCallback((id: string) => {
-        setForwards((prev) => prev.filter((f) => f.id !== id));
-    }, []);
-
-    // Simple toggle (used for quick UI state switching)
-    const toggleForward = useCallback((id: string) => {
-        setForwards((prev) =>
-            prev.map((f) => {
-                if (f.id !== id) return f;
-                return {
-                    ...f,
-                    status: f.status === 'running' ? 'stopped' : 'running',
-                } as PortForward;
-            }),
-        );
-    }, []);
-
-    // Real IPC-backed tunnel start
-    const startForward = useCallback(
-        async (id: string) => {
-            const forward = forwards.find((f) => f.id === id);
-            if (!forward) return;
-
-            const host = hosts.find((h) => h.id === forward.hostId);
-            if (!host) return;
-
-            try {
-                // @ts-expect-error global scope window extensions
-                await window.electronAPI.ssh.startTunnel(
-                    {
-                        id: forward.id,
-                        type: forward.type,
-                        localPort: forward.localPort,
-                        remoteHost: forward.remoteHost,
-                        remotePort: forward.remotePort,
-                        localHost: forward.localHost,
-                        bindAddress: forward.bindAddress,
-                        gatewayPorts: forward.gatewayPorts,
-                        restartOnDisconnect: forward.restartOnDisconnect,
-                    },
-                    {
-                        name: host.name,
-                        hostname: host.hostname,
-                        port: host.port,
-                        username: host.username,
-                        identityFile: host.identityFile,
-                    },
-                    settings.sshBinaryPath,
-                );
-
-                setForwards((prev) =>
-                    prev.map((f) => (f.id === id ? { ...f, status: 'running' as const } : f)),
-                );
-            } catch (err) {
-                console.error('Failed to start tunnel', err);
-                setForwards((prev) =>
-                    prev.map((f) => (f.id === id ? { ...f, status: 'error' as const } : f)),
-                );
-            }
-        },
-        [forwards, hosts, settings.sshBinaryPath],
-    );
-
-    // Real IPC-backed tunnel stop
-    const stopForward = useCallback(async (id: string) => {
-        try {
-            // @ts-expect-error global scope window extensions
-            await window.electronAPI.ssh.stopTunnel(id);
-            setForwards((prev) =>
-                prev.map((f) => (f.id === id ? { ...f, status: 'stopped' as const } : f)),
-            );
-        } catch (err) {
-            console.error('Failed to stop tunnel', err);
-        }
-    }, []);
-
-    // Port availability check
-    const checkPortAvailability = useCallback(async (port: number) => {
-        try {
-            // @ts-expect-error global scope window extensions
-            return await window.electronAPI.ssh.checkPort(port);
-        } catch (err) {
-            console.error('Failed to check port', err);
-            return { available: true };
-        }
-    }, []);
-
-    const updateSettings = useCallback((updates: Partial<AppSettings>) => {
-        setSettings((prev) => ({ ...prev, ...updates }));
-    }, []);
-
-    if (!isLoaded) {
-        return (
-            <div className='flex h-screen w-screen items-center justify-center'>
-                Loading Configuration...
-            </div>
-        );
-    }
-
-    return (
-        <AppStoreContext.Provider
-            value={{
-                hosts,
-                addHost,
-                updateHost,
-                deleteHost,
-                duplicateHost,
-                forwards,
-                addForward,
-                updateForward,
-                deleteForward,
-                toggleForward,
-                startForward,
-                stopForward,
-                checkPortAvailability,
-                settings,
-                updateSettings,
-            }}>
-            {children}
-        </AppStoreContext.Provider>
-    );
-}
-
-export function useAppStore() {
-    const context = useContext(AppStoreContext);
-    if (!context) {
-        throw new Error('useAppStore must be used within AppStoreProvider');
-    }
-    return context;
+    };
 }

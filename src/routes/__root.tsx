@@ -3,11 +3,10 @@ import { TanStackRouterDevtools } from '@tanstack/react-router-devtools';
 
 import { AppSidebar } from '@/components/app-sidebar';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import { AppStoreProvider } from '@/lib/store';
 
 function RootLayout() {
     return (
-        <AppStoreProvider>
+        <>
             <SidebarProvider>
                 <AppSidebar />
                 <SidebarInset>
@@ -15,7 +14,7 @@ function RootLayout() {
                 </SidebarInset>
             </SidebarProvider>
             <TanStackRouterDevtools />
-        </AppStoreProvider>
+        </>
     );
 }
 

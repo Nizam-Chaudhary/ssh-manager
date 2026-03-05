@@ -7,6 +7,7 @@ import { Toaster } from '@/components/ui/sonner';
 
 import { ThemeProvider } from './components/theme-provider';
 import { TooltipProvider } from './components/ui/tooltip';
+import { initializeStore } from './lib/store';
 // Import the generated route tree
 import { routeTree } from './routeTree.gen';
 
@@ -19,6 +20,9 @@ declare module '@tanstack/react-router' {
         router: typeof router;
     }
 }
+
+// Initialize the AppStore
+initializeStore();
 
 // Render the app
 const rootElement = document.getElementById('root')!;
