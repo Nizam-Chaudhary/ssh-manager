@@ -348,7 +348,20 @@ export function ForwardForm({ forward }: ForwardFormProps) {
                                                 <SelectTrigger
                                                     id='forward-host'
                                                     aria-invalid={isInvalid}>
-                                                    <SelectValue placeholder='Select host' />
+                                                    <SelectValue placeholder='Select host'>
+                                                        {field.state.value
+                                                            ? (() => {
+                                                                  const selected = hosts.find(
+                                                                      (h) =>
+                                                                          h.id ===
+                                                                          field.state.value,
+                                                                  );
+                                                                  return selected
+                                                                      ? `${selected.name} (${selected.hostname})`
+                                                                      : 'Select host';
+                                                              })()
+                                                            : 'Select host'}
+                                                    </SelectValue>
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     {hosts.map((host) => (

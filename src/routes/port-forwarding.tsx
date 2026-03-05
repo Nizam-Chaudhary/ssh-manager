@@ -197,7 +197,11 @@ function PortForwardingPage() {
                             if (val) setHostFilter(val);
                         }}>
                         <SelectTrigger className='w-44'>
-                            <SelectValue placeholder='Filter by host' />
+                            <SelectValue placeholder='Filter by host'>
+                                {hostFilter === 'all'
+                                    ? 'All Hosts'
+                                    : hosts.find((h) => h.id === hostFilter)?.name}
+                            </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value='all'>All Hosts</SelectItem>
