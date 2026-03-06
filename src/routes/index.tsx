@@ -4,6 +4,8 @@ import {
     DownloadIcon,
     MoreHorizontalIcon,
     PencilIcon,
+    PinIcon,
+    PinOffIcon,
     PlusIcon,
     SearchIcon,
     TerminalIcon,
@@ -35,7 +37,7 @@ export const Route = createFileRoute('/')({
 });
 
 function HostsPage() {
-    const { hosts, deleteHost, duplicateHost, connectHost } = useAppStore();
+    const { hosts, deleteHost, duplicateHost, connectHost, toggleHostPin } = useAppStore();
     const navigate = useNavigate();
     const [search, setSearch] = useState('');
     const [deleteTarget, setDeleteTarget] = useState<Host | null>(null);
@@ -50,6 +52,9 @@ function HostsPage() {
                 h.username.toLowerCase().includes(q),
         );
     }, [hosts, search]);
+
+    const pinnedHosts = useMemo(() => filteredHosts.filter((h) => h.pinned), [filteredHosts]);
+    const unpinnedHosts = useMemo(() => filteredHosts.filter((h) => !h.pinned), [filteredHosts]);
 
     const handleEdit = (host: Host) => {
         void navigate({ to: '/hosts/edit/$hostId', params: { hostId: host.id } });
@@ -90,102 +95,61 @@ function HostsPage() {
 
                 {/* Cards */}
                 {filteredHosts.length > 0 ? (
-                    <div className='grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3'>
-                        {filteredHosts.map((host) => (
-                            <Card key={host.id} className='py-3'>
-                                <CardContent className='flex items-center justify-between gap-4'>
-                                    <div className='min-w-0 flex-1 space-y-0.5'>
-                                        <div className='flex min-w-0 items-center gap-2'>
-                                            <TooltipProvider>
-                                                <Tooltip>
-                                                    <TooltipTrigger
-                                                        render={
-                                                            <span className='block min-w-0 cursor-default truncate text-left text-sm font-medium'>
-                                                                {host.name}
-                                                            </span>
-                                                        }
-                                                    />
-                                                    <TooltipContent>{host.name}</TooltipContent>
-                                                </Tooltip>
-                                            </TooltipProvider>
-                                            <Badge
-                                                variant='secondary'
-                                                className='h-4 shrink-0 px-1 py-0 text-[10px] uppercase'>
-                                                {host.authType}
-                                            </Badge>
-                                        </div>
-                                        <TooltipProvider delay={300}>
-                                            <Tooltip>
-                                                <TooltipTrigger
-                                                    render={
-                                                        <span className='block min-w-0 cursor-default truncate text-left font-mono text-xs text-muted-foreground'>
-                                                            {host.username}@{host.hostname}:
-                                                            {host.port}
-                                                        </span>
-                                                    }
-                                                />
-                                                <TooltipContent>
-                                                    {host.username}@{host.hostname}:{host.port}
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
-                                    </div>
-                                    <div className='flex shrink-0 items-center gap-1'>
-                                        <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger
-                                                    render={
-                                                        <Button
-                                                            variant='outline'
-                                                            size='icon-sm'
-                                                            onClick={() => {
-                                                                void connectHost(host.id);
-                                                                toast.success(
-                                                                    `Connecting to ${host.name}...`,
-                                                                );
-                                                            }}
-                                                        />
-                                                    }>
-                                                    <TerminalIcon />
-                                                    <span className='sr-only'>Connect</span>
-                                                </TooltipTrigger>
-                                                <TooltipContent>Connect</TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger
-                                                render={<Button variant='ghost' size='icon-sm' />}>
-                                                <MoreHorizontalIcon />
-                                                <span className='sr-only'>Actions</span>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align='end'>
-                                                <DropdownMenuItem onClick={() => handleEdit(host)}>
-                                                    <PencilIcon />
-                                                    Edit
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem
-                                                    onClick={() => duplicateHost(host.id)}>
-                                                    <CopyIcon />
-                                                    Duplicate
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem
-                                                    onClick={() => handleExport(host)}>
-                                                    <DownloadIcon />
-                                                    Export
-                                                </DropdownMenuItem>
-                                                <DropdownMenuSeparator />
-                                                <DropdownMenuItem
-                                                    variant='destructive'
-                                                    onClick={() => setDeleteTarget(host)}>
-                                                    <TrashIcon />
-                                                    Delete
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
+                    <div className='flex flex-col gap-6'>
+                        {/* Pinned Hosts */}
+                        {pinnedHosts.length > 0 && (
+                            <div className='space-y-3'>
+                                <h3 className='flex items-center gap-2 text-sm font-semibold'>
+                                    <PinIcon className='size-4' />
+                                    Pinned Hosts
+                                </h3>
+                                <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3'>
+                                    {pinnedHosts.map((host) => (
+                                        <HostCard
+                                            key={host.id}
+                                            host={host}
+                                            onConnect={() => {
+                                                void connectHost(host.id);
+                                                toast.success(`Connecting to ${host.name}...`);
+                                            }}
+                                            onTogglePin={() => toggleHostPin(host.id)}
+                                            onEdit={() => handleEdit(host)}
+                                            onDuplicate={() => duplicateHost(host.id)}
+                                            onExport={() => handleExport(host)}
+                                            onDelete={() => setDeleteTarget(host)}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Unpinned Hosts */}
+                        {unpinnedHosts.length > 0 && (
+                            <div className='space-y-3'>
+                                {pinnedHosts.length > 0 && (
+                                    <h3 className='text-sm font-semibold text-muted-foreground'>
+                                        Other Hosts
+                                    </h3>
+                                )}
+                                <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3'>
+                                    {unpinnedHosts.map((host) => (
+                                        <HostCard
+                                            key={host.id}
+                                            host={host}
+                                            onConnect={() => {
+                                                void connectHost(host.id);
+                                                toast.success(`Connecting to ${host.name}...`);
+                                            }}
+                                            onTogglePin={() => toggleHostPin(host.id)}
+                                            onEdit={() => handleEdit(host)}
+                                            onDuplicate={() => duplicateHost(host.id)}
+                                            onExport={() => handleExport(host)}
+                                            onDelete={() => setDeleteTarget(host)}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 ) : (
                     <div className='flex flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-12'>
@@ -226,5 +190,108 @@ function HostsPage() {
                 }}
             />
         </>
+    );
+}
+
+function HostCard({
+    host,
+    onConnect,
+    onTogglePin,
+    onEdit,
+    onDuplicate,
+    onExport,
+    onDelete,
+}: {
+    host: Host;
+    onConnect: () => void;
+    onTogglePin: () => void;
+    onEdit: () => void;
+    onDuplicate: () => void;
+    onExport: () => void;
+    onDelete: () => void;
+}) {
+    return (
+        <Card className='py-3'>
+            <CardContent className='flex items-center justify-between gap-4'>
+                <div className='min-w-0 flex-1 space-y-0.5'>
+                    <div className='flex min-w-0 items-center gap-2'>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger
+                                    render={
+                                        <span className='block min-w-0 cursor-default truncate text-left text-sm font-medium'>
+                                            {host.name}
+                                        </span>
+                                    }
+                                />
+                                <TooltipContent>{host.name}</TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                        <Badge
+                            variant='secondary'
+                            className='h-4 shrink-0 px-1 py-0 text-[10px] uppercase'>
+                            {host.authType}
+                        </Badge>
+                    </div>
+                    <TooltipProvider delay={300}>
+                        <Tooltip>
+                            <TooltipTrigger
+                                render={
+                                    <span className='block min-w-0 cursor-default truncate text-left font-mono text-xs text-muted-foreground'>
+                                        {host.username}@{host.hostname}:{host.port}
+                                    </span>
+                                }
+                            />
+                            <TooltipContent>
+                                {host.username}@{host.hostname}:{host.port}
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                </div>
+                <div className='flex shrink-0 items-center gap-1'>
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger
+                                render={
+                                    <Button variant='outline' size='icon-sm' onClick={onConnect} />
+                                }>
+                                <TerminalIcon />
+                                <span className='sr-only'>Connect</span>
+                            </TooltipTrigger>
+                            <TooltipContent>Connect</TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger render={<Button variant='ghost' size='icon-sm' />}>
+                            <MoreHorizontalIcon />
+                            <span className='sr-only'>Actions</span>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align='end'>
+                            <DropdownMenuItem onClick={onTogglePin}>
+                                {host.pinned ? <PinOffIcon /> : <PinIcon />}
+                                {host.pinned ? 'Unpin' : 'Pin'}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={onEdit}>
+                                <PencilIcon />
+                                Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={onDuplicate}>
+                                <CopyIcon />
+                                Duplicate
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={onExport}>
+                                <DownloadIcon />
+                                Export
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem variant='destructive' onClick={onDelete}>
+                                <TrashIcon />
+                                Delete
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+            </CardContent>
+        </Card>
     );
 }

@@ -102,10 +102,10 @@ export function ForwardForm({ forward }: ForwardFormProps) {
                 return;
             }
             if (isEditing && forward) {
-                updateForward(forward.id, value);
+                updateForward(forward.id, { ...value, pinned: false });
                 toast.success(`Forward "${value.name}" updated`);
             } else {
-                addForward(value);
+                addForward({ ...value, pinned: false });
                 toast.success(`Forward "${value.name}" created`);
             }
             void navigate({ to: '/port-forwarding' });

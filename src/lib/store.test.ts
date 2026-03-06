@@ -40,6 +40,7 @@ const createTestForward = (
     autoStart: false,
     restartOnDisconnect: false,
     gatewayPorts: false,
+    pinned: false,
     ...overrides,
 });
 

@@ -4,6 +4,8 @@ import {
     Loader2Icon,
     MoreHorizontalIcon,
     PencilIcon,
+    PinIcon,
+    PinOffIcon,
     PlayIcon,
     PlusIcon,
     SquareIcon,
@@ -42,7 +44,8 @@ export const Route = createFileRoute('/port-forwarding')({
 });
 
 function PortForwardingPage() {
-    const { hosts, forwards, deleteForward, startForward, stopForward } = useAppStore();
+    const { hosts, forwards, deleteForward, startForward, stopForward, toggleForwardPin } =
+        useAppStore();
     const navigate = useNavigate();
     const [hostFilter, setHostFilter] = useState('all');
     const [deleteTarget, setDeleteTarget] = useState<PortForward | null>(null);
@@ -53,16 +56,26 @@ function PortForwardingPage() {
         return forwards.filter((f) => f.hostId === hostFilter);
     }, [forwards, hostFilter]);
 
-    // Group forwards by host
+    const pinnedForwards = useMemo(
+        () => filteredForwards.filter((f) => f.pinned),
+        [filteredForwards],
+    );
+
+    const unpinnedForwards = useMemo(
+        () => filteredForwards.filter((f) => !f.pinned),
+        [filteredForwards],
+    );
+
+    // Group forwards by host (only for unpinned)
     const groupedForwards = useMemo(() => {
         const groups = new Map<string, PortForward[]>();
-        for (const f of filteredForwards) {
+        for (const f of unpinnedForwards) {
             const existing = groups.get(f.hostId) || [];
             existing.push(f);
             groups.set(f.hostId, existing);
         }
         return groups;
-    }, [filteredForwards]);
+    }, [unpinnedForwards]);
 
     const getHostName = (hostId: string) => hosts.find((h) => h.id === hostId)?.name ?? 'Unknown';
 
@@ -203,9 +216,39 @@ function PortForwardingPage() {
 
                 {/* Running Tunnels Panel Removed */}
 
+                {/* Pinned Forwards */}
+                {pinnedForwards.length > 0 && (
+                    <div className='space-y-3'>
+                        <h3 className='flex items-center gap-2 text-sm font-semibold'>
+                            <PinIcon className='size-4' />
+                            Pinned Forwards
+                        </h3>
+                        <div className='grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3'>
+                            {pinnedForwards.map((forward) => (
+                                <ForwardCard
+                                    key={forward.id}
+                                    forward={forward}
+                                    isLoading={isLoading(forward.id)}
+                                    formatPorts={formatPorts}
+                                    onToggle={() => void handleToggle(forward)}
+                                    onCopyCommand={() => handleCopyCommand(forward)}
+                                    onEdit={() => handleEdit(forward)}
+                                    onTogglePin={() => toggleForwardPin(forward.id)}
+                                    onDelete={() => setDeleteTarget(forward)}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* Per-Host Grouped View */}
                 {groupedForwards.size > 0 && (
-                    <div className='space-y-4'>
+                    <div className='space-y-4 pt-4'>
+                        {pinnedForwards.length > 0 && (
+                            <h3 className='text-sm font-semibold text-muted-foreground'>
+                                Other Forwards
+                            </h3>
+                        )}
                         {[...groupedForwards.entries()].map(([hostId, hostForwards]) => {
                             const runningCount = hostForwards.filter(
                                 (f) => f.status === 'running',
@@ -249,138 +292,17 @@ function PortForwardingPage() {
 
                                     <div className='grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3'>
                                         {hostForwards.map((forward) => (
-                                            <Card key={forward.id} className='py-3'>
-                                                <CardContent className='flex items-center justify-between gap-4'>
-                                                    <div className='min-w-0 flex-1 space-y-0.5'>
-                                                        <div className='flex min-w-0 items-center gap-2'>
-                                                            <span className='relative flex h-2 w-2 shrink-0'>
-                                                                {isLoading(forward.id) ? (
-                                                                    <span className='relative inline-flex h-2 w-2 rounded-full bg-yellow-500' />
-                                                                ) : forward.status === 'running' ? (
-                                                                    <>
-                                                                        <span className='absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75' />
-                                                                        <span className='relative inline-flex h-2 w-2 rounded-full bg-green-500' />
-                                                                    </>
-                                                                ) : forward.status === 'error' ? (
-                                                                    <span className='relative inline-flex h-2 w-2 rounded-full bg-red-500' />
-                                                                ) : (
-                                                                    <span className='relative inline-flex h-2 w-2 rounded-full bg-zinc-500' />
-                                                                )}
-                                                            </span>
-                                                            <TooltipProvider>
-                                                                <Tooltip>
-                                                                    <TooltipTrigger className='block min-w-0 truncate text-left text-sm font-medium'>
-                                                                        {forward.name}
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent>
-                                                                        {forward.name}
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                            </TooltipProvider>
-                                                            <Badge
-                                                                variant='secondary'
-                                                                className='h-4 shrink-0 px-1 py-0 text-[10px] uppercase'>
-                                                                {forward.type}
-                                                            </Badge>
-                                                        </div>
-                                                        <TooltipProvider delay={300}>
-                                                            <Tooltip>
-                                                                <TooltipTrigger className='block min-w-0 truncate text-left font-mono text-xs text-muted-foreground'>
-                                                                    {formatPorts(forward)}
-                                                                </TooltipTrigger>
-                                                                <TooltipContent>
-                                                                    {formatPorts(forward)}
-                                                                </TooltipContent>
-                                                            </Tooltip>
-                                                        </TooltipProvider>
-                                                    </div>
-                                                    <div className='flex shrink-0 items-center gap-1'>
-                                                        <TooltipProvider>
-                                                            <Tooltip>
-                                                                <TooltipTrigger
-                                                                    render={
-                                                                        <Button
-                                                                            variant='outline'
-                                                                            size='icon-sm'
-                                                                            disabled={isLoading(
-                                                                                forward.id,
-                                                                            )}
-                                                                            onClick={() =>
-                                                                                void handleToggle(
-                                                                                    forward,
-                                                                                )
-                                                                            }
-                                                                        />
-                                                                    }>
-                                                                    {isLoading(forward.id) ? (
-                                                                        <Loader2Icon className='animate-spin text-yellow-500' />
-                                                                    ) : forward.status ===
-                                                                      'running' ? (
-                                                                        <SquareIcon className='text-red-500' />
-                                                                    ) : (
-                                                                        <PlayIcon className='text-green-500' />
-                                                                    )}
-                                                                    <span className='sr-only'>
-                                                                        {forward.status ===
-                                                                        'running'
-                                                                            ? 'Stop'
-                                                                            : forward.status ===
-                                                                                'error'
-                                                                              ? 'Retry'
-                                                                              : 'Start'}
-                                                                    </span>
-                                                                </TooltipTrigger>
-                                                                <TooltipContent>
-                                                                    {forward.status === 'running'
-                                                                        ? 'Stop'
-                                                                        : forward.status === 'error'
-                                                                          ? 'Retry'
-                                                                          : 'Start'}
-                                                                </TooltipContent>
-                                                            </Tooltip>
-                                                        </TooltipProvider>
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger
-                                                                render={
-                                                                    <Button
-                                                                        variant='ghost'
-                                                                        size='icon-sm'
-                                                                    />
-                                                                }>
-                                                                <MoreHorizontalIcon />
-                                                                <span className='sr-only'>
-                                                                    Actions
-                                                                </span>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align='end'>
-                                                                <DropdownMenuItem
-                                                                    onClick={() =>
-                                                                        handleCopyCommand(forward)
-                                                                    }>
-                                                                    <CopyIcon />
-                                                                    Copy SSH Command
-                                                                </DropdownMenuItem>
-                                                                <DropdownMenuItem
-                                                                    onClick={() =>
-                                                                        handleEdit(forward)
-                                                                    }>
-                                                                    <PencilIcon />
-                                                                    Edit
-                                                                </DropdownMenuItem>
-                                                                <DropdownMenuSeparator />
-                                                                <DropdownMenuItem
-                                                                    variant='destructive'
-                                                                    onClick={() =>
-                                                                        setDeleteTarget(forward)
-                                                                    }>
-                                                                    <TrashIcon />
-                                                                    Delete
-                                                                </DropdownMenuItem>
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
-                                                    </div>
-                                                </CardContent>
-                                            </Card>
+                                            <ForwardCard
+                                                key={forward.id}
+                                                forward={forward}
+                                                isLoading={isLoading(forward.id)}
+                                                formatPorts={formatPorts}
+                                                onToggle={() => void handleToggle(forward)}
+                                                onCopyCommand={() => handleCopyCommand(forward)}
+                                                onEdit={() => handleEdit(forward)}
+                                                onTogglePin={() => toggleForwardPin(forward.id)}
+                                                onDelete={() => setDeleteTarget(forward)}
+                                            />
                                         ))}
                                     </div>
                                 </div>
@@ -423,5 +345,133 @@ function PortForwardingPage() {
                 }}
             />
         </>
+    );
+}
+
+function ForwardCard({
+    forward,
+    isLoading,
+    formatPorts,
+    onToggle,
+    onCopyCommand,
+    onEdit,
+    onTogglePin,
+    onDelete,
+}: {
+    forward: PortForward;
+    isLoading: boolean;
+    formatPorts: (forward: PortForward) => string;
+    onToggle: () => void;
+    onCopyCommand: () => void;
+    onEdit: () => void;
+    onTogglePin: () => void;
+    onDelete: () => void;
+}) {
+    return (
+        <Card className='py-3'>
+            <CardContent className='flex items-center justify-between gap-4'>
+                <div className='min-w-0 flex-1 space-y-0.5'>
+                    <div className='flex min-w-0 items-center gap-2'>
+                        <span className='relative flex h-2 w-2 shrink-0'>
+                            {isLoading ? (
+                                <span className='relative inline-flex h-2 w-2 rounded-full bg-yellow-500' />
+                            ) : forward.status === 'running' ? (
+                                <>
+                                    <span className='absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75' />
+                                    <span className='relative inline-flex h-2 w-2 rounded-full bg-green-500' />
+                                </>
+                            ) : forward.status === 'error' ? (
+                                <span className='relative inline-flex h-2 w-2 rounded-full bg-red-500' />
+                            ) : (
+                                <span className='relative inline-flex h-2 w-2 rounded-full bg-zinc-500' />
+                            )}
+                        </span>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger className='block min-w-0 truncate text-left text-sm font-medium'>
+                                    {forward.name}
+                                </TooltipTrigger>
+                                <TooltipContent>{forward.name}</TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                        <Badge
+                            variant='secondary'
+                            className='h-4 shrink-0 px-1 py-0 text-[10px] uppercase'>
+                            {forward.type}
+                        </Badge>
+                    </div>
+                    <TooltipProvider delay={300}>
+                        <Tooltip>
+                            <TooltipTrigger className='block min-w-0 truncate text-left font-mono text-xs text-muted-foreground'>
+                                {formatPorts(forward)}
+                            </TooltipTrigger>
+                            <TooltipContent>{formatPorts(forward)}</TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                </div>
+                <div className='flex shrink-0 items-center gap-1'>
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger
+                                render={
+                                    <Button
+                                        variant='outline'
+                                        size='icon-sm'
+                                        disabled={isLoading}
+                                        onClick={onToggle}
+                                    />
+                                }>
+                                {isLoading ? (
+                                    <Loader2Icon className='animate-spin text-yellow-500' />
+                                ) : forward.status === 'running' ? (
+                                    <SquareIcon className='text-red-500' />
+                                ) : (
+                                    <PlayIcon className='text-green-500' />
+                                )}
+                                <span className='sr-only'>
+                                    {forward.status === 'running'
+                                        ? 'Stop'
+                                        : forward.status === 'error'
+                                          ? 'Retry'
+                                          : 'Start'}
+                                </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                {forward.status === 'running'
+                                    ? 'Stop'
+                                    : forward.status === 'error'
+                                      ? 'Retry'
+                                      : 'Start'}
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger render={<Button variant='ghost' size='icon-sm' />}>
+                            <MoreHorizontalIcon />
+                            <span className='sr-only'>Actions</span>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align='end'>
+                            <DropdownMenuItem onClick={onCopyCommand}>
+                                <CopyIcon />
+                                Copy SSH Command
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={onTogglePin}>
+                                {forward.pinned ? <PinOffIcon /> : <PinIcon />}
+                                {forward.pinned ? 'Unpin' : 'Pin'}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={onEdit}>
+                                <PencilIcon />
+                                Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem variant='destructive' onClick={onDelete}>
+                                <TrashIcon />
+                                Delete
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+            </CardContent>
+        </Card>
     );
 }

@@ -28,6 +28,7 @@ export const PortForwardSchema = z.object({
     autoStart: z.boolean().default(false),
     restartOnDisconnect: z.boolean().default(false),
     gatewayPorts: z.boolean().default(false),
+    pinned: z.boolean().default(false),
 });
 
 // Host
@@ -64,6 +65,7 @@ export const HostSchema = z.object({
     forwards: z.array(PortForwardSchema).default([]),
 
     status: z.enum(['connected', 'disconnected', 'error']).default('disconnected'),
+    pinned: z.boolean().default(false),
 });
 
 // Terminal Emulator

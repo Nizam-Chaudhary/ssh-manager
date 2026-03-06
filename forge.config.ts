@@ -44,6 +44,7 @@ const config: ForgeConfig = {
             options: {
                 productName: 'SSH Manager',
                 icon: path.join(iconsDir, 'ssh-manager.svg'),
+                depends: ['sshpass'],
             },
         }),
     ],

@@ -18,13 +18,15 @@ interface AppActions {
     updateHost: (id: string, host: Partial<Host>) => void;
     deleteHost: (id: string) => void;
     duplicateHost: (id: string) => void;
+    toggleHostPin: (id: string) => void;
 
     addForward: (forward: Omit<PortForward, 'id' | 'status'>) => void;
     updateForward: (id: string, forward: Partial<PortForward>) => void;
     deleteForward: (id: string) => void;
     toggleForward: (id: string) => void;
-    connectHost: (id: string) => Promise<void>;
-    startForward: (id: string) => Promise<void>;
+    toggleForwardPin: (id: string) => void;
+    connectHost: (id: string, password?: string) => Promise<void>;
+    startForward: (id: string, password?: string) => Promise<void>;
     stopForward: (id: string) => Promise<void>;
     checkPortAvailability: (
         port: number,
@@ -93,6 +95,15 @@ export const useAppStore = create<AppStore>()(
                     });
                 },
 
+                toggleHostPin: (id) => {
+                    set((state) => {
+                        const host = state.hosts.find((h) => h.id === id);
+                        if (host) {
+                            host.pinned = !host.pinned;
+                        }
+                    });
+                },
+
                 connectHost: async (id) => {
                     const state = get();
                     const host = state.hosts.find((h) => h.id === id);
@@ -151,7 +162,16 @@ export const useAppStore = create<AppStore>()(
                     });
                 },
 
-                startForward: async (id) => {
+                toggleForwardPin: (id) => {
+                    set((state) => {
+                        const forward = state.forwards.find((f) => f.id === id);
+                        if (forward) {
+                            forward.pinned = !forward.pinned;
+                        }
+                    });
+                },
+
+                startForward: async (id, password) => {
                     const state = get();
                     const forward = state.forwards.find((f) => f.id === id);
                     if (!forward) return;
@@ -179,6 +199,7 @@ export const useAppStore = create<AppStore>()(
                                 port: host.port,
                                 username: host.username,
                                 identityFile: host.identityFile,
+                                password: password || host.password,
                             },
                             'ssh',
                         );
