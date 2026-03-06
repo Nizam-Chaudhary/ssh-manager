@@ -16,7 +16,6 @@ import type { Host } from '@/lib/types';
 
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { PageHeader } from '@/components/page-header';
-import { StatusBadge } from '@/components/status-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -109,7 +108,6 @@ function HostsPage() {
                                     <TableHead className='w-17.5'>Port</TableHead>
                                     <TableHead>Auth</TableHead>
                                     <TableHead className='w-22.5'>Forwards</TableHead>
-                                    <TableHead>Status</TableHead>
                                     <TableHead className='w-12.5' />
                                 </TableRow>
                             </TableHeader>
@@ -131,9 +129,6 @@ function HostsPage() {
                                             <Badge variant='outline'>
                                                 {getForwardCount(host.id)}
                                             </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <StatusBadge status={host.status} />
                                         </TableCell>
                                         <TableCell>
                                             <DropdownMenu>
