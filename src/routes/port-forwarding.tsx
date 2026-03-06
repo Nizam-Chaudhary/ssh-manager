@@ -3,7 +3,6 @@ import {
     CopyIcon,
     Loader2Icon,
     MoreHorizontalIcon,
-    PauseIcon,
     PencilIcon,
     PlayIcon,
     PlusIcon,
@@ -18,7 +17,6 @@ import type { PortForward } from '@/lib/types';
 
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { PageHeader } from '@/components/page-header';
-import { StatusBadge } from '@/components/status-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -36,14 +34,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAppStore } from '@/lib/store';
 
@@ -62,11 +52,6 @@ function PortForwardingPage() {
         if (hostFilter === 'all') return forwards;
         return forwards.filter((f) => f.hostId === hostFilter);
     }, [forwards, hostFilter]);
-
-    const runningForwards = useMemo(
-        () => forwards.filter((f) => f.status === 'running'),
-        [forwards],
-    );
 
     // Group forwards by host
     const groupedForwards = useMemo(() => {
@@ -214,49 +199,7 @@ function PortForwardingPage() {
                     </Select>
                 </div>
 
-                {/* Running Tunnels Panel */}
-                {runningForwards.length > 0 && (
-                    <div className='space-y-2'>
-                        <h3 className='text-sm font-medium text-muted-foreground'>
-                            Running Tunnels ({runningForwards.length})
-                        </h3>
-                        <div className='grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3'>
-                            {runningForwards.map((forward) => (
-                                <Card key={forward.id} className='py-3'>
-                                    <CardContent className='flex items-center justify-between'>
-                                        <div className='min-w-0 space-y-0.5'>
-                                            <div className='flex items-center gap-2'>
-                                                <span className='relative flex h-2 w-2'>
-                                                    <span className='absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75' />
-                                                    <span className='relative inline-flex h-2 w-2 rounded-full bg-green-500' />
-                                                </span>
-                                                <p className='text-sm font-medium'>
-                                                    {forward.name}
-                                                </p>
-                                            </div>
-                                            <p className='truncate font-mono text-xs text-muted-foreground'>
-                                                {formatPorts(forward)} •{' '}
-                                                {getHostName(forward.hostId)}
-                                            </p>
-                                        </div>
-                                        <Button
-                                            variant='outline'
-                                            size='sm'
-                                            disabled={isLoading(forward.id)}
-                                            onClick={() => void handleToggle(forward)}>
-                                            {isLoading(forward.id) ? (
-                                                <Loader2Icon className='size-3 animate-spin' />
-                                            ) : (
-                                                <SquareIcon className='size-3' />
-                                            )}
-                                            Stop
-                                        </Button>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
-                    </div>
-                )}
+                {/* Running Tunnels Panel Removed */}
 
                 {/* Per-Host Grouped View */}
                 {groupedForwards.size > 0 && (
@@ -302,142 +245,150 @@ function PortForwardingPage() {
                                         </div>
                                     </div>
 
-                                    <div className='rounded-lg border'>
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead>Name</TableHead>
-                                                    <TableHead>Type</TableHead>
-                                                    <TableHead>Ports</TableHead>
-                                                    <TableHead>Command</TableHead>
-                                                    <TableHead>Status</TableHead>
-                                                    <TableHead className='w-12.5' />
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {hostForwards.map((forward) => (
-                                                    <TableRow key={forward.id}>
-                                                        <TableCell>
-                                                            <div>
-                                                                <p className='font-medium'>
-                                                                    {forward.name}
-                                                                </p>
-                                                                {forward.description && (
-                                                                    <p className='text-xs text-muted-foreground'>
-                                                                        {forward.description}
-                                                                    </p>
+                                    <div className='grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3'>
+                                        {hostForwards.map((forward) => (
+                                            <Card key={forward.id} className='py-3'>
+                                                <CardContent className='flex items-center justify-between gap-4'>
+                                                    <div className='min-w-0 flex-1 space-y-0.5'>
+                                                        <div className='flex min-w-0 items-center gap-2'>
+                                                            <span className='relative flex h-2 w-2 shrink-0'>
+                                                                {isLoading(forward.id) ? (
+                                                                    <span className='relative inline-flex h-2 w-2 rounded-full bg-yellow-500' />
+                                                                ) : forward.status === 'running' ? (
+                                                                    <>
+                                                                        <span className='absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75' />
+                                                                        <span className='relative inline-flex h-2 w-2 rounded-full bg-green-500' />
+                                                                    </>
+                                                                ) : forward.status === 'error' ? (
+                                                                    <span className='relative inline-flex h-2 w-2 rounded-full bg-red-500' />
+                                                                ) : (
+                                                                    <span className='relative inline-flex h-2 w-2 rounded-full bg-zinc-500' />
                                                                 )}
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Badge
-                                                                variant='secondary'
-                                                                className='capitalize'>
-                                                                {forward.type}
-                                                            </Badge>
-                                                        </TableCell>
-                                                        <TableCell className='font-mono text-sm'>
-                                                            {formatPorts(forward)}
-                                                        </TableCell>
-                                                        <TableCell>
+                                                            </span>
                                                             <TooltipProvider>
                                                                 <Tooltip>
-                                                                    <TooltipTrigger
-                                                                        render={
-                                                                            <Button
-                                                                                variant='ghost'
-                                                                                size='icon-sm'
-                                                                                onClick={() =>
-                                                                                    handleCopyCommand(
-                                                                                        forward,
-                                                                                    )
-                                                                                }
-                                                                            />
-                                                                        }>
-                                                                        <TerminalIcon className='size-3.5' />
+                                                                    <TooltipTrigger className='block min-w-0 text-left'>
+                                                                        <p className='truncate text-sm font-medium'>
+                                                                            {forward.name}
+                                                                        </p>
                                                                     </TooltipTrigger>
                                                                     <TooltipContent>
-                                                                        <code className='text-xs'>
-                                                                            {generateSshCommand(
-                                                                                forward,
-                                                                            )}
-                                                                        </code>
+                                                                        {forward.name}
                                                                     </TooltipContent>
                                                                 </Tooltip>
                                                             </TooltipProvider>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <StatusBadge status={forward.status} />
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <DropdownMenu>
-                                                                <DropdownMenuTrigger
+                                                            <Badge
+                                                                variant='secondary'
+                                                                className='h-4 shrink-0 px-1 py-0 text-[10px] uppercase'>
+                                                                {forward.type}
+                                                            </Badge>
+                                                        </div>
+                                                        <TooltipProvider delay={300}>
+                                                            <Tooltip>
+                                                                <TooltipTrigger className='block min-w-0 text-left'>
+                                                                    <p className='truncate font-mono text-xs text-muted-foreground'>
+                                                                        {formatPorts(forward)}
+                                                                    </p>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    {formatPorts(forward)}
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                    </div>
+                                                    <div className='flex shrink-0 items-center gap-1'>
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger
                                                                     render={
                                                                         <Button
-                                                                            variant='ghost'
+                                                                            variant={
+                                                                                forward.status ===
+                                                                                'running'
+                                                                                    ? 'outline'
+                                                                                    : 'default'
+                                                                            }
                                                                             size='icon-sm'
+                                                                            disabled={isLoading(
+                                                                                forward.id,
+                                                                            )}
+                                                                            onClick={() =>
+                                                                                void handleToggle(
+                                                                                    forward,
+                                                                                )
+                                                                            }
                                                                         />
                                                                     }>
-                                                                    <MoreHorizontalIcon />
+                                                                    {isLoading(forward.id) ? (
+                                                                        <Loader2Icon className='animate-spin' />
+                                                                    ) : forward.status ===
+                                                                      'running' ? (
+                                                                        <SquareIcon />
+                                                                    ) : (
+                                                                        <PlayIcon />
+                                                                    )}
                                                                     <span className='sr-only'>
-                                                                        Actions
-                                                                    </span>
-                                                                </DropdownMenuTrigger>
-                                                                <DropdownMenuContent align='end'>
-                                                                    <DropdownMenuItem
-                                                                        disabled={isLoading(
-                                                                            forward.id,
-                                                                        )}
-                                                                        onClick={() =>
-                                                                            void handleToggle(
-                                                                                forward,
-                                                                            )
-                                                                        }>
                                                                         {forward.status ===
-                                                                        'running' ? (
-                                                                            <>
-                                                                                <PauseIcon />
-                                                                                Stop
-                                                                            </>
-                                                                        ) : (
-                                                                            <>
-                                                                                <PlayIcon />
-                                                                                Start
-                                                                            </>
-                                                                        )}
-                                                                    </DropdownMenuItem>
-                                                                    <DropdownMenuItem
-                                                                        onClick={() =>
-                                                                            handleCopyCommand(
-                                                                                forward,
-                                                                            )
-                                                                        }>
-                                                                        <CopyIcon />
-                                                                        Copy SSH Command
-                                                                    </DropdownMenuItem>
-                                                                    <DropdownMenuItem
-                                                                        onClick={() =>
-                                                                            handleEdit(forward)
-                                                                        }>
-                                                                        <PencilIcon />
-                                                                        Edit
-                                                                    </DropdownMenuItem>
-                                                                    <DropdownMenuSeparator />
-                                                                    <DropdownMenuItem
-                                                                        variant='destructive'
-                                                                        onClick={() =>
-                                                                            setDeleteTarget(forward)
-                                                                        }>
-                                                                        <TrashIcon />
-                                                                        Delete
-                                                                    </DropdownMenuItem>
-                                                                </DropdownMenuContent>
-                                                            </DropdownMenu>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
+                                                                        'running'
+                                                                            ? 'Stop'
+                                                                            : forward.status ===
+                                                                                'error'
+                                                                              ? 'Retry'
+                                                                              : 'Start'}
+                                                                    </span>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    {forward.status === 'running'
+                                                                        ? 'Stop'
+                                                                        : forward.status === 'error'
+                                                                          ? 'Retry'
+                                                                          : 'Start'}
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger
+                                                                render={
+                                                                    <Button
+                                                                        variant='ghost'
+                                                                        size='icon-sm'
+                                                                    />
+                                                                }>
+                                                                <MoreHorizontalIcon />
+                                                                <span className='sr-only'>
+                                                                    Actions
+                                                                </span>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align='end'>
+                                                                <DropdownMenuItem
+                                                                    onClick={() =>
+                                                                        handleCopyCommand(forward)
+                                                                    }>
+                                                                    <CopyIcon />
+                                                                    Copy SSH Command
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem
+                                                                    onClick={() =>
+                                                                        handleEdit(forward)
+                                                                    }>
+                                                                    <PencilIcon />
+                                                                    Edit
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem
+                                                                    variant='destructive'
+                                                                    onClick={() =>
+                                                                        setDeleteTarget(forward)
+                                                                    }>
+                                                                    <TrashIcon />
+                                                                    Delete
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        ))}
                                     </div>
                                 </div>
                             );

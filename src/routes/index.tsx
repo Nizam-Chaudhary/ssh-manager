@@ -18,6 +18,7 @@ import { ConfirmDialog } from '@/components/confirm-dialog';
 import { PageHeader } from '@/components/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -26,14 +27,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAppStore } from '@/lib/store';
 
 export const Route = createFileRoute('/')({
@@ -41,7 +35,7 @@ export const Route = createFileRoute('/')({
 });
 
 function HostsPage() {
-    const { hosts, forwards, deleteHost, duplicateHost, connectHost } = useAppStore();
+    const { hosts, deleteHost, duplicateHost, connectHost } = useAppStore();
     const navigate = useNavigate();
     const [search, setSearch] = useState('');
     const [deleteTarget, setDeleteTarget] = useState<Host | null>(null);
@@ -56,8 +50,6 @@ function HostsPage() {
                 h.username.toLowerCase().includes(q),
         );
     }, [hosts, search]);
-
-    const getForwardCount = (hostId: string) => forwards.filter((f) => f.hostId === hostId).length;
 
     const handleEdit = (host: Host) => {
         void navigate({ to: '/hosts/edit/$hostId', params: { hostId: host.id } });
@@ -96,90 +88,99 @@ function HostsPage() {
                     </div>
                 </div>
 
-                {/* Table */}
+                {/* Cards */}
                 {filteredHosts.length > 0 ? (
-                    <div className='rounded-lg border'>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Name</TableHead>
-                                    <TableHead>Hostname</TableHead>
-                                    <TableHead>User</TableHead>
-                                    <TableHead className='w-17.5'>Port</TableHead>
-                                    <TableHead>Auth</TableHead>
-                                    <TableHead className='w-22.5'>Forwards</TableHead>
-                                    <TableHead className='w-12.5' />
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filteredHosts.map((host) => (
-                                    <TableRow key={host.id}>
-                                        <TableCell className='font-medium'>{host.name}</TableCell>
-                                        <TableCell className='font-mono text-sm'>
-                                            {host.hostname}
-                                        </TableCell>
-                                        <TableCell>{host.username}</TableCell>
-                                        <TableCell>{host.port}</TableCell>
-                                        <TableCell>
-                                            <Badge variant='secondary' className='capitalize'>
+                    <div className='grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3'>
+                        {filteredHosts.map((host) => (
+                            <Card key={host.id} className='py-3'>
+                                <CardContent className='flex items-center justify-between gap-4'>
+                                    <div className='min-w-0 flex-1 space-y-0.5'>
+                                        <div className='flex min-w-0 items-center gap-2'>
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger className='block min-w-0 text-left'>
+                                                        <p className='truncate text-sm font-medium'>
+                                                            {host.name}
+                                                        </p>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>{host.name}</TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                            <Badge
+                                                variant='secondary'
+                                                className='h-4 shrink-0 px-1 py-0 text-[10px] uppercase'>
                                                 {host.authType}
                                             </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant='outline'>
-                                                {getForwardCount(host.id)}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger
+                                        </div>
+                                        <TooltipProvider delay={300}>
+                                            <Tooltip>
+                                                <TooltipTrigger className='block min-w-0 text-left'>
+                                                    <p className='truncate font-mono text-xs text-muted-foreground'>
+                                                        {host.username}@{host.hostname}:{host.port}
+                                                    </p>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    {host.username}@{host.hostname}:{host.port}
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                    </div>
+                                    <div className='flex shrink-0 items-center gap-1'>
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger
                                                     render={
-                                                        <Button variant='ghost' size='icon-sm' />
+                                                        <Button
+                                                            variant='outline'
+                                                            size='icon-sm'
+                                                            onClick={() => {
+                                                                void connectHost(host.id);
+                                                                toast.success(
+                                                                    `Connecting to ${host.name}...`,
+                                                                );
+                                                            }}
+                                                        />
                                                     }>
-                                                    <MoreHorizontalIcon />
-                                                    <span className='sr-only'>Actions</span>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align='end'>
-                                                    <DropdownMenuItem
-                                                        onClick={() => {
-                                                            void connectHost(host.id);
-                                                            toast.success(
-                                                                `Connecting to ${host.name}...`,
-                                                            );
-                                                        }}>
-                                                        <TerminalIcon />
-                                                        Connect
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuSeparator />
-                                                    <DropdownMenuItem
-                                                        onClick={() => handleEdit(host)}>
-                                                        <PencilIcon />
-                                                        Edit
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem
-                                                        onClick={() => duplicateHost(host.id)}>
-                                                        <CopyIcon />
-                                                        Duplicate
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem
-                                                        onClick={() => handleExport(host)}>
-                                                        <DownloadIcon />
-                                                        Export
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuSeparator />
-                                                    <DropdownMenuItem
-                                                        variant='destructive'
-                                                        onClick={() => setDeleteTarget(host)}>
-                                                        <TrashIcon />
-                                                        Delete
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                                    <TerminalIcon />
+                                                    <span className='sr-only'>Connect</span>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Connect</TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger
+                                                render={<Button variant='ghost' size='icon-sm' />}>
+                                                <MoreHorizontalIcon />
+                                                <span className='sr-only'>Actions</span>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align='end'>
+                                                <DropdownMenuItem onClick={() => handleEdit(host)}>
+                                                    <PencilIcon />
+                                                    Edit
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem
+                                                    onClick={() => duplicateHost(host.id)}>
+                                                    <CopyIcon />
+                                                    Duplicate
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem
+                                                    onClick={() => handleExport(host)}>
+                                                    <DownloadIcon />
+                                                    Export
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem
+                                                    variant='destructive'
+                                                    onClick={() => setDeleteTarget(host)}>
+                                                    <TrashIcon />
+                                                    Delete
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
                     </div>
                 ) : (
                     <div className='flex flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-12'>
